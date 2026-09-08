@@ -15,6 +15,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
+        <TextView android:id="@+id/session_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="12dp" android:accessibilityLiveRegion="polite" />
         <TabWidget
             android:id="@android:id/tabs"
             android:orientation="horizontal"

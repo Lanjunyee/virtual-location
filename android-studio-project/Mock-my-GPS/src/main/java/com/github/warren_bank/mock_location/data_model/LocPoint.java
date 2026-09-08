@@ -13,19 +13,35 @@ public class LocPoint {
     }
 
     public LocPoint(double latitude, double longitude) {
+        validate(latitude, 0);
         mLatitude = latitude;
+        validate(0, longitude);
         mLongitude = longitude;
     }
 
     public LocPoint(String text) throws NumberFormatException {
-        String[] parts = text.split(",");
+        String[] parts = text.split(",", -1);
         if (parts.length == 2) {
             mLatitude  = Double.parseDouble(parts[0].trim());
             mLongitude = Double.parseDouble(parts[1].trim());
+            validate(mLatitude, mLongitude);
         }
         else {
             throw new NumberFormatException("expected: latitude,longitude");
         }
+    }
+
+    public static void validate(double lat, double lon) {
+        if (Double.isNaN(lat) || Double.isInfinite(lat) || Math.abs(lat) > 90 ||
+            Double.isNaN(lon) || Double.isInfinite(lon) || Math.abs(lon) > 180)
+            throw new NumberFormatException("WGS84 坐标无效：纬度 -90～90，经度 -180～180");
+    }
+
+    // Shared linear interpolation, including routes across the date line.
+    public static LocPoint interpolate(LocPoint a, LocPoint b, double factor) {
+        double delta = ((b.mLongitude - a.mLongitude + 540) % 360) - 180;
+        double lon = ((a.mLongitude + factor * delta + 540) % 360) - 180;
+        return new LocPoint(a.mLatitude + factor * (b.mLatitude - a.mLatitude), lon);
     }
 
     public double getLatitude() {
@@ -37,10 +53,12 @@ public class LocPoint {
     }
 
     public void setLatitude(double latitude) {
+        validate(latitude, 0);
         mLatitude = latitude;
     }
 
     public void setLongitude(double longitude) {
+        validate(0, longitude);
         mLongitude = longitude;
     }
 

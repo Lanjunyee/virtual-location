@@ -294,7 +294,7 @@ public final class SharedPrefs {
 
     public static int getTimeInterval(SharedPreferences sharedPreferences, Context context) {
         int pref_key_id = R.string.pref_time_interval;
-        int defValue = 100;
+        int defValue = 1000;
         return getInt(sharedPreferences, context, pref_key_id, defValue);
     }
 
@@ -344,7 +344,7 @@ public final class SharedPrefs {
 
     public static boolean getFixedJoystickEnabled(SharedPreferences sharedPreferences, Context context) {
         int pref_key_id = R.string.pref_fixed_joystick_enabled;
-        boolean defValue = true;
+        boolean defValue = false;
         return getBoolean(sharedPreferences, context, pref_key_id, defValue);
     }
 

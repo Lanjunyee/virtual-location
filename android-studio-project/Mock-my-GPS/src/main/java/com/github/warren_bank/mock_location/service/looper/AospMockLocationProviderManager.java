@@ -27,6 +27,10 @@ public class AospMockLocationProviderManager {
             startMockingLocationFused(context);
         }
 
+        if (mockGps == null) {
+            stopMockingLocation();
+            throw new SecurityException("无法启动 GPS 模拟定位，请检查开发者选项");
+        }
         nlpManager = new UnifiedNlpManager(context);
     }
 
@@ -84,7 +88,7 @@ public class AospMockLocationProviderManager {
                 mockGps.pushLocation(lat, lon);
             }
             catch (Exception e) {
-             // stopMockingLocationGps();
+                throw new IllegalStateException("GPS 模拟定位失败", e);
             }
         }
 

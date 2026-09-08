@@ -10,6 +10,8 @@ import android.os.Build;
 import android.os.SystemClock;
 
 public class MockLocationProvider {
+    private static volatile float motionSpeed, motionBearing;
+    public static void setMotion(float speed, float bearing) { motionSpeed = speed; motionBearing = bearing; }
     String providerName;
     Context ctx;
 
@@ -79,13 +81,14 @@ public class MockLocationProvider {
     }
 
     protected static Location getLocation(String providerName, double lat, double lon, int advanceTimeMillis) {
-        Location mockLocation = new Location(providerName);
+        com.github.warren_bank.mock_location.data_model.LocPoint.validate(lat, lon);
+        Location mockLocation = new Location(providerName == null ? LocationManager.GPS_PROVIDER : providerName);
         mockLocation.setLatitude(lat);
         mockLocation.setLongitude(lon);
         mockLocation.setAltitude(3F);
         mockLocation.setTime(System.currentTimeMillis() + advanceTimeMillis);
-        mockLocation.setSpeed(0.01F);
-        mockLocation.setBearing(1F);
+        mockLocation.setSpeed(motionSpeed);
+        mockLocation.setBearing(motionBearing);
         mockLocation.setAccuracy(3F);
         if (Build.VERSION.SDK_INT >= 26) {
             mockLocation.setBearingAccuracyDegrees(0.1F);

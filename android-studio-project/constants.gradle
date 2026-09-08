@@ -5,15 +5,15 @@ project.ext {
     buildToolsVersion = '35.0.0'
     javaVersion       = JavaVersion.VERSION_1_8
 
-    base_versionCode                     = Integer.parseInt("002050300", 10)  //Integer.MAX_VALUE == 2147483647
-    base_versionName                     = '002.05.03'
+    base_versionCode                     = Integer.parseInt("002050302", 10)  //Integer.MAX_VALUE == 2147483647
+    base_versionName                     = '002.05.03-personal.3'
 
     app_applicationId                    = 'com.github.warren_bank.mock_location'
-    app_aosp_minSdk                      = 4
+    app_aosp_minSdk                      = 19
     app_aosp_versionCode                 = project.ext.base_versionCode + project.ext.app_aosp_minSdk
     app_aosp_versionName                 = String.format("%s-%02dAPI", project.ext.base_versionName, project.ext.app_aosp_minSdk)
 
-    app_aosp_withFileChooser_minSdk      = 9
+    app_aosp_withFileChooser_minSdk      = 19
     app_aosp_withFileChooser_versionCode = project.ext.base_versionCode + project.ext.app_aosp_withFileChooser_minSdk
     app_aosp_withFileChooser_versionName = String.format("%s-%02dAPI", project.ext.base_versionName, project.ext.app_aosp_withFileChooser_minSdk)
 

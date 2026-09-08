@@ -33,6 +33,15 @@ public final class RuntimePermissions {
       public void onPermissionsDenied(String[] permissions);
     }
 
+    public static void requireMockLocation(Context context) {
+        if (!hasMandatoryPermissions(context)) throw new SecurityException("请授予精确定位权限");
+        if (Build.VERSION.SDK_INT >= 23) {
+            android.app.AppOpsManager ops = (android.app.AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
+            if (ops.checkOpNoThrow(android.app.AppOpsManager.OPSTR_MOCK_LOCATION, android.os.Process.myUid(), context.getPackageName()) != android.app.AppOpsManager.MODE_ALLOWED)
+                throw new SecurityException("请在开发者选项中将本应用选为模拟位置信息应用");
+        }
+    }
+
     public static void requestPermissions(Activity activity, RuntimePermissionsListener listener) {
         if (Build.VERSION.SDK_INT >= 23) {
           String[] missingPermissions = getMissingPermissions(activity);
@@ -162,28 +171,10 @@ public final class RuntimePermissions {
         if (Build.VERSION.SDK_INT < 23)
             return new String[0];
 
-        PackageInfo info;
-        try {
-            info = activity.getPackageManager().getPackageInfo(activity.getPackageName(), PackageManager.GET_PERMISSIONS);
-        }
-        catch (PackageManager.NameNotFoundException e) {
-            return new String[0];
-        }
-
-        if (info.requestedPermissions == null) {
-            return new String[0];
-        }
-
         ArrayList<String> missingPermissions = new ArrayList<>();
-        for (int i = 0; i < info.requestedPermissions.length; i++) {
-            if ((info.requestedPermissionsFlags[i] & PackageInfo.REQUESTED_PERMISSION_GRANTED) == 0) {
-                missingPermissions.add(info.requestedPermissions[i]);
-            }
+        for (String permission : MANDATORY_PERMISSIONS) {
+            if (activity.checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) missingPermissions.add(permission);
         }
-
-        // permissions that must always be requested individually:
-        missingPermissions.remove(Manifest.permission.ACCESS_BACKGROUND_LOCATION);
-
         return missingPermissions.toArray(new String[missingPermissions.size()]);
     }
 

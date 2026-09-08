@@ -4,47 +4,40 @@ import com.huawei.hms.api.ConnectionResult;
 import com.huawei.hms.api.HuaweiApiAvailability;
 import com.huawei.hms.location.FusedLocationProviderClient;
 import com.huawei.hms.location.LocationServices;
-
+import com.github.warren_bank.mock_location.service.LocationService;
 import android.content.Context;
-import android.location.Location;
 
 public class HmsMockLocationProviderManager {
+    private static volatile FusedLocationProviderClient client;
+    private static volatile boolean ready;
+    private static Context context;
 
-    private static FusedLocationProviderClient client = null;
-    private static int advanceTimeMillis              = 45000;
-
-    protected static void startMockingLocation(Context context) {
-        if (HuaweiApiAvailability.getInstance().isHuaweiMobileServicesAvailable(context) != ConnectionResult.SUCCESS)
-            return;
-
+    protected static void startMockingLocation(Context appContext) {
+        if (HuaweiApiAvailability.getInstance().isHuaweiMobileServicesAvailable(appContext) != ConnectionResult.SUCCESS)
+            throw new IllegalStateException("HMS Core 不可用，请安装 AOSP 版或更新 HMS Core");
         stopMockingLocation();
-
-        try {
-            client = LocationServices.getFusedLocationProviderClient(context);
-            client.setMockMode(true);
-        }
-        catch (Exception e) {
-            stopMockingLocation();
-        }
+        context = appContext.getApplicationContext();
+        FusedLocationProviderClient session = LocationServices.getFusedLocationProviderClient(context);
+        client = session;
+        session.setMockMode(true).addOnSuccessListener(value -> {
+            if (client == session) ready = true;
+        }).addOnFailureListener(error -> {
+            if (client == session) LocationService.reportFailure(context, error);
+        });
     }
-
     protected static void exec(double lat, double lon) {
-        if (client != null) {
-            try {
-                Location mockLocation = MockLocationProvider.getLocation(lat, lon, advanceTimeMillis);
-                client.setMockLocation(mockLocation);
-            }
-            catch (Exception e) {}
+        FusedLocationProviderClient session = client;
+        if (session != null && ready) {
+            session.setMockLocation(MockLocationProvider.getLocation(lat, lon)).addOnFailureListener(error -> {
+                if (client == session) LocationService.reportFailure(context, error);
+            });
         }
     }
-
     protected static void stopMockingLocation() {
-        if (client != null) {
-            try {
-                client.setMockMode(false);
-            }
-            catch(Exception e) {}
-            client = null;
-        }
+        FusedLocationProviderClient session = client;
+        client = null;
+        ready = false;
+        if (session != null) session.setMockMode(false).addOnFailureListener(error ->
+            android.util.Log.e("MockLocation", "HMS mock mode cleanup failed", error));
     }
 }

@@ -12,6 +12,9 @@ import com.github.warren_bank.mock_location.service.LocationService;
 import com.github.warren_bank.mock_location.ui.components.JoyStickView;
 
 import android.content.Context;
+import android.os.SystemClock;
+import com.github.warren_bank.mock_location.data_model.RoutePlayback;
+import java.util.List;
 
 public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsListener {
     private static LocationThreadManager INSTANCE = new LocationThreadManager();
@@ -32,6 +35,8 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
     private double mFixedJoystickIncrement;
     private boolean mTripHoldDestination;
 
+    private RoutePlayback route;
+
     private boolean mIsStarted = false;
     private boolean mIsFlyMode = false;
 
@@ -48,7 +53,7 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
         return INSTANCE;
     }
 
-    public void start(LocPoint locPoint) {
+    public synchronized void start(LocPoint locPoint) {
         if (mContext == null) return;
         if (locPoint == null) return;
 
@@ -58,7 +63,7 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
             mLocationThread.startThread();
         }
 
-        if (mFixedJoystickEnabled && !mIsFlyMode && RuntimePermissions.canDrawOverlays(mContext)) {
+        if (route == null && mFixedJoystickEnabled && !mIsFlyMode && RuntimePermissions.canDrawOverlays(mContext)) {
             showJoyStick();
         }
 
@@ -66,23 +71,28 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
         mIsStarted = true;
     }
 
-    public void stop() {
+    public synchronized void stop() {
+        route = null;
+        mIsFlyMode = false;
+        MockLocationProvider.setMotion(0, 0);
         if (mLocationThread != null) {
             mLocationThread.stopThread();
             mLocationThread = null;
         }
 
         hideJoyStick();
+        mJoyStickView = null;
         mIsStarted = false;
 
         stopService();
+        mContext = null;
     }
 
     private void stopService() {
-        LocationService.doStop(mContext, true);
+        if (mContext != null && LocationService.isStarted()) LocationService.doStop(mContext, true);
     }
 
-    public boolean isStarted() {
+    public synchronized boolean isStarted() {
         return mIsStarted;
     }
 
@@ -103,11 +113,36 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
         }
     }
 
-    public LocPoint getCurrentLocPoint() {
+    public synchronized LocPoint getCurrentLocPoint() {
         return new LocPoint(mCurrentLocPoint);
     }
 
-    public LocPoint getUpdateLocPoint() {
+    public synchronized void startRoute(List<LocPoint> points, double speed) {
+        RoutePlayback next = new RoutePlayback(points, speed, SystemClock.elapsedRealtime());
+        route = next;
+        mIsFlyMode = false;
+        mTimeInterval = 1000;
+        hideJoyStick();
+        start(points.get(0));
+    }
+
+    public synchronized boolean hasRoute() { return route != null; }
+    public synchronized void pauseRoute(boolean paused) {
+        if (route != null) route.setPaused(paused, SystemClock.elapsedRealtime());
+    }
+    public synchronized String status() {
+        if (!mIsStarted) return "已停止";
+        if (route == null) return mIsFlyMode ? "两点移动中" : "固定位置运行中";
+        return route.isFinished() ? "已到终点，保持位置" : route.isPaused() ? "已暂停，保持位置" : "路线播放中";
+    }
+
+    public synchronized LocPoint getUpdateLocPoint() {
+        if (route != null) {
+            mCurrentLocPoint = route.position(SystemClock.elapsedRealtime());
+            MockLocationProvider.setMotion(route.speed(), route.bearing());
+            return new LocPoint(mCurrentLocPoint);
+        }
+        MockLocationProvider.setMotion(0, 0);
         if (!mIsFlyMode && (mFixedCountRemaining != 0)) {
             if (mFixedCountRemaining < 0) {
                 return null;
@@ -131,16 +166,14 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
         }
         else {
             float factor = (float) mFlyTimeIndex / (float) mFlyTime;
-            double lat = mOriginLocPoint.getLatitude()  + (factor * (mTargetLocPoint.getLatitude()  - mOriginLocPoint.getLatitude()));
-            double lon = mOriginLocPoint.getLongitude() + (factor * (mTargetLocPoint.getLongitude() - mOriginLocPoint.getLongitude()));
+            mCurrentLocPoint = LocPoint.interpolate(mOriginLocPoint, mTargetLocPoint, factor);
             mFlyTimeIndex++;
-            mCurrentLocPoint.setLatitude(lat);
-            mCurrentLocPoint.setLongitude(lon);
             return new LocPoint(mCurrentLocPoint);
         }
     }
 
-    public boolean shouldContinue() {
+    public synchronized boolean shouldContinue() {
+        if (route != null) return mIsStarted;
         boolean is_done = (
                 (!mIsFlyMode && (mFixedCountRemaining < 0))
             ||  ( mIsFlyMode && (mFlyTimeIndex > mFlyTime))
@@ -153,12 +186,17 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
         return !is_done;
     }
 
-    public void jumpToLocation(LocPoint location) {
+    public synchronized void jumpToLocation(LocPoint location) {
+        LocPoint.validate(location.getLatitude(), location.getLongitude());
+        route = null;
         mIsFlyMode = false;
         mCurrentLocPoint = new LocPoint(location);
     }
 
-    public void flyToLocation(LocPoint location, int trip_duration_seconds) {
+    public synchronized void flyToLocation(LocPoint location, int trip_duration_seconds) {
+        LocPoint.validate(location.getLatitude(), location.getLongitude());
+        if (trip_duration_seconds <= 0) throw new IllegalArgumentException("移动时间必须大于 0");
+        route = null;
         if (mIsStarted && mFixedJoystickEnabled) {
             hideJoyStick();
         }
@@ -170,11 +208,11 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
         mFlyTime        = convertFlyTime_secondsToLoopIterations(trip_duration_seconds, mTimeInterval);
     }
 
-    public boolean isFlyMode() {
+    public synchronized boolean isFlyMode() {
         return mIsFlyMode;
     }
 
-    public void stopFlyMode() {
+    public synchronized void stopFlyMode() {
         mIsFlyMode = false;
     }
 
@@ -187,22 +225,22 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
     }
 
     @Override
-    public void onArrowUpClick() {
+    public synchronized void onArrowUpClick() {
         mCurrentLocPoint.setLatitude(mCurrentLocPoint.getLatitude() + mFixedJoystickIncrement);
     }
 
     @Override
-    public void onArrowDownClick() {
+    public synchronized void onArrowDownClick() {
         mCurrentLocPoint.setLatitude(mCurrentLocPoint.getLatitude() - mFixedJoystickIncrement);
     }
 
     @Override
-    public void onArrowLeftClick() {
+    public synchronized void onArrowLeftClick() {
         mCurrentLocPoint.setLongitude(mCurrentLocPoint.getLongitude() - mFixedJoystickIncrement);
     }
 
     @Override
-    public void onArrowRightClick() {
+    public synchronized void onArrowRightClick() {
         mCurrentLocPoint.setLongitude(mCurrentLocPoint.getLongitude() + mFixedJoystickIncrement);
     }
 
@@ -211,8 +249,8 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
     // =================================
 
     @Override
-    public void onSharedPrefsChange(short diff_fields) {
-        importSharedPrefs();
+    public synchronized void onSharedPrefsChange(short diff_fields) {
+        if (route == null) importSharedPrefs();
     }
 
     private void importSharedPrefs() {

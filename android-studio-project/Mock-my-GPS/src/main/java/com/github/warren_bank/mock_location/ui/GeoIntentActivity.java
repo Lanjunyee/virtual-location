@@ -55,6 +55,8 @@ public class GeoIntentActivity extends Activity implements RuntimePermissions.Ru
             return;
         }
 
+        try { LocPoint.validate(geoPoint.getLatitude(), geoPoint.getLongitude()); }
+        catch (Exception error) { handleNoData(error.getMessage()); return; }
         final LocPoint point = new LocPoint(
             geoPoint.getLatitude(),
             geoPoint.getLongitude()

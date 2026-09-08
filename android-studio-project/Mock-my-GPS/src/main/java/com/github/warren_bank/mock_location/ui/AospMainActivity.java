@@ -29,6 +29,20 @@ import java.util.ArrayList;
 
 public class AospMainActivity extends ActivityGroup implements RuntimePermissionsRequester, RuntimePermissions.RuntimePermissionsListener {
     private TabHost tabHost;
+    private final android.os.Handler statusHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable refreshStatus = new Runnable() {
+        public void run() {
+            ((TextView) findViewById(R.id.session_status)).setText(LocationService.status());
+            android.app.Activity current = getCurrentActivity();
+            if (current != null) {
+                TextView button = current.findViewById(R.id.button_toggle_state);
+                if (button != null) button.setText(LocationService.isStarted() ? R.string.label_button_stop : R.string.label_button_start);
+            }
+            statusHandler.postDelayed(this, 1000);
+        }
+    };
+    @Override protected void onResume() { super.onResume(); statusHandler.post(refreshStatus); }
+    @Override protected void onPause() { statusHandler.removeCallbacks(refreshStatus); super.onPause(); }
 
     // =============================================================================================
     // Lifecycle Events:
@@ -38,6 +52,7 @@ public class AospMainActivity extends ActivityGroup implements RuntimePermission
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        if (Build.VERSION.SDK_INT >= 23) getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
 
         tabHost = (TabHost) findViewById(android.R.id.tabhost);
         tabHost.setup(getLocalActivityManager());
@@ -101,6 +116,7 @@ public class AospMainActivity extends ActivityGroup implements RuntimePermission
     @Override
     public boolean onOptionsItemSelected(MenuItem menuItem) {
         switch(menuItem.getItemId()) {
+            case R.id.menu_route: { startActivity(new Intent(this, RouteActivity.class)); return true; }
             case R.id.menu_start_preferences: {
                 startPreferences();
                 return true;
@@ -266,7 +282,8 @@ public class AospMainActivity extends ActivityGroup implements RuntimePermission
 
     public void onPermissionsGranted() {
         RuntimePermissionsListener listener = (RuntimePermissionsListener) getCurrentActivity();
-        listener.doStart();
+        try { listener.doStart(); }
+        catch (Exception error) { Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show(); }
     }
 
     public void onPermissionsDenied(String[] permissions) {

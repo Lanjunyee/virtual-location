@@ -9,6 +9,7 @@ import com.github.warren_bank.mock_location.ui.interfaces.RuntimePermissionsList
 import com.github.warren_bank.mock_location.ui.interfaces.RuntimePermissionsRequester;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -18,6 +19,7 @@ import android.widget.TextView;
 
 public class FixedPositionActivity extends Activity implements RuntimePermissionsListener {
     private LocPoint originalLoc;
+    private String pendingMapSelection;
 
     private TextView label_fixed_position;
     private TextView input_fixed_position;
@@ -35,6 +37,15 @@ public class FixedPositionActivity extends Activity implements RuntimePermission
         input_fixed_position = (TextView) findViewById(R.id.input_fixed_position);
         button_toggle_state  = (Button)   findViewById(R.id.button_toggle_state);
         button_update        = (Button)   findViewById(R.id.button_update);
+
+        findViewById(R.id.button_map_fixed_position).setOnClickListener(v -> {
+            try {
+                LocPoint point = new LocPoint(input_fixed_position.getText().toString());
+                startActivityForResult(MapPickerActivity.intent(this, point.toString(), false), 201);
+            } catch (Exception error) {
+                android.widget.Toast.makeText(this, error.getMessage() == null ? "坐标无效" : error.getMessage(), android.widget.Toast.LENGTH_SHORT).show();
+            }
+        });
 
         input_fixed_position.addTextChangedListener(new TextWatcher() {
             public void afterTextChanged(Editable s) {
@@ -72,7 +83,7 @@ public class FixedPositionActivity extends Activity implements RuntimePermission
                         requestPermissions();
                     }
                 }
-                catch(Exception e) {}
+                catch(Exception e) { android.widget.Toast.makeText(FixedPositionActivity.this, e.getMessage() == null ? "输入或操作无效" : e.getMessage(), android.widget.Toast.LENGTH_SHORT).show(); }
             }
         });
 
@@ -87,7 +98,7 @@ public class FixedPositionActivity extends Activity implements RuntimePermission
                         button_update.setVisibility(View.GONE);
                     }
                 }
-                catch(Exception e) {}
+                catch(Exception e) { android.widget.Toast.makeText(FixedPositionActivity.this, e.getMessage() == null ? "输入或操作无效" : e.getMessage(), android.widget.Toast.LENGTH_SHORT).show(); }
             }
         });
     }
@@ -96,6 +107,21 @@ public class FixedPositionActivity extends Activity implements RuntimePermission
     protected void onResume() {
         super.onResume();
         reset();
+        if (pendingMapSelection != null) {
+            input_fixed_position.setText(pendingMapSelection);
+            pendingMapSelection = null;
+        }
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 201 && resultCode == RESULT_OK) {
+            String selected = MapPickerActivity.result(data);
+            if (selected != null) {
+                pendingMapSelection = selected.trim();
+                input_fixed_position.setText(pendingMapSelection);
+            }
+        }
     }
 
     private void reset() {
@@ -107,8 +133,7 @@ public class FixedPositionActivity extends Activity implements RuntimePermission
             label_fixed_position.setVisibility(View.VISIBLE);
         }
 
-        if (LocationService.isStarted())
-            button_toggle_state.setText(R.string.label_button_stop);
+        button_toggle_state.setText(LocationService.isStarted() ? R.string.label_button_stop : R.string.label_button_start);
 
         button_update.setVisibility(View.GONE);
     }

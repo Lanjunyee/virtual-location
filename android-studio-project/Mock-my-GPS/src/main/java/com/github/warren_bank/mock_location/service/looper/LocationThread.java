@@ -15,6 +15,7 @@ public class LocationThread extends HandlerThread {
     private LocationThreadManager mLocationThreadManager;
     private int mTimeInterval;
     private Handler mHandler;
+    private volatile boolean stopped;
 
     public LocationThread(Context context, LocationThreadManager locationThreadManager, int timeInterval) {
         super("LocationThread", Process.THREAD_PRIORITY_MORE_FAVORABLE);
@@ -39,15 +40,16 @@ public class LocationThread extends HandlerThread {
     }
 
     public void stopThread() {
+        stopped = true;
         MockLocationProviderManager.stopMockingLocation();
 
-        mHandler.removeCallbacksAndMessages(null);
+        if (mHandler != null) mHandler.removeCallbacksAndMessages(null);
         try {
             quit();
             interrupt();
         }
         catch (Exception e) {}
-        mLocationThreadManager = null;
+
     }
 
     public void updateTimeInterval(int timeInterval) {
@@ -57,18 +59,18 @@ public class LocationThread extends HandlerThread {
     Runnable mUpdateLocation = new Runnable() {
         @Override
         public void run() {
-            try {
-                if (mLocationThreadManager != null) {
-                    LocPoint locPoint = mLocationThreadManager.getUpdateLocPoint();
-                    if (locPoint != null) {
-                        MockLocationProviderManager.exec(locPoint.getLatitude(), locPoint.getLongitude());
-                    }
-                }
-                if ((mLocationThreadManager != null) && mLocationThreadManager.shouldContinue()) {
-                    mHandler.postDelayed(mUpdateLocation, mTimeInterval);
+            synchronized (mLocationThreadManager) {
+                if (stopped) return;
+                try {
+                    com.github.warren_bank.mock_location.security_model.RuntimePermissions.requireMockLocation(mContext);
+                    LocPoint point = mLocationThreadManager.getUpdateLocPoint();
+                    if (point != null) MockLocationProviderManager.exec(point.getLatitude(), point.getLongitude());
+                    if (!stopped && mLocationThreadManager.shouldContinue()) mHandler.postDelayed(this, mTimeInterval);
+                } catch (Exception error) {
+                    stopped = true;
+                    com.github.warren_bank.mock_location.service.LocationService.reportFailure(mContext, error);
                 }
             }
-            catch(Exception e) {}
         }
     };
 

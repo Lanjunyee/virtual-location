@@ -27,3 +27,6 @@ out
 # Other
 .DS_Store
 local.properties
+
+# Build and verification artifacts
+dist/

@@ -10,9 +10,12 @@
 
     <!-- required to mock location -->
     <uses-permission android:name="android.permission.ACCESS_MOCK_LOCATION"
-        tools:ignore="MockLocation" />
+        tools:ignore="MockLocation,ProtectedPermissions" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <!-- required for interactive OpenStreetMap tiles -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- required for "joystick" -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -40,6 +43,9 @@
         android:theme="@style/app_theme"
         android:allowBackup="false">
 
+        <activity android:name=".ui.RouteActivity" android:exported="false" />
+        <activity android:name=".ui.MapPickerActivity" android:exported="false" />
+
         <service
             android:name=".service.LocationService"
             android:foregroundServiceType="location"
@@ -48,6 +54,7 @@
 
         <activity
             android:name=".ui.MainActivity"
+            android:windowSoftInputMode="stateAlwaysHidden"
             android:label="@string/app_name"
             android:configChanges="colorMode|density|fontScale|keyboard|keyboardHidden|layoutDirection|locale|mcc|mnc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|touchscreen|uiMode"
             android:launchMode="standard"
@@ -137,7 +144,7 @@
             </intent-filter>
             <intent-filter>
                 <data android:scheme="http" android:host="download.osmand.net" android:pathPrefix="/go" />
-                <data android:scheme="http" android:host="download.osmand.net" android:pathPrefix="go" />
+                <data android:scheme="http" android:host="download.osmand.net" android:pathPrefix="/go" />
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />

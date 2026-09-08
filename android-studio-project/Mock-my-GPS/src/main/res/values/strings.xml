@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!DOCTYPE resources [
-  <!ENTITY lat_lon        "Latitude, Longitude">
+  <!ENTITY lat_lon        "Latitude, Longitude — WGS84">
   <!ENTITY fixed_position "Fixed Position">
   <!ENTITY trip           "Trip">
   <!ENTITY origin         "Origin">
@@ -9,7 +9,7 @@
 ]>
 
 <resources>
-    <string name="app_name">Mock my GPS</string>
+    <string name="app_name">虚拟定位（个人版）</string>
 
     <!-- GeoIntentActivity ================================================= -->
 
@@ -96,6 +96,7 @@
     <string name="label_button_cancel">CANCEL</string>
     <string name="label_button_delete">DELETE</string>
     <string name="label_button_save">SAVE</string>
+    <string name="label_button_map">Choose on Map</string>
 
     <!-- shared preferences -->
     <string translatable="false" name="prefs_filename">PREFS</string>
@@ -128,4 +129,5 @@
     -->
     <string name="notification_service_content_line2">Click to open.</string>
 
+    <string name="route_title">路线模拟</string>
 </resources>
