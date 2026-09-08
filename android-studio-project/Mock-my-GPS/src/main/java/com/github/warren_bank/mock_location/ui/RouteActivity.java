@@ -8,9 +8,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import android.text.InputType;
 import android.view.View;
 import android.widget.*;
+import com.github.warren_bank.mock_location.R;
 import com.github.warren_bank.mock_location.data_model.LocPoint;
 import com.github.warren_bank.mock_location.data_model.RoutePlayback;
 import com.github.warren_bank.mock_location.security_model.RuntimePermissions;
@@ -42,56 +42,40 @@ public class RouteActivity extends Activity implements RuntimePermissions.Runtim
     };
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        setTitle("路线模拟");
+        setTitle(R.string.ui_route_title);
+        if (state != null) {
+            pendingPoints = state.getString("pending_points");
+            pendingSpeed = state.getDouble("pending_speed");
+        }
         preferences = getSharedPreferences("route", MODE_PRIVATE);
-        ScrollView scroll = new ScrollView(this);
-
-        if (android.os.Build.VERSION.SDK_INT >= 23) getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setFocusableInTouchMode(true);
-        int pad = (int) (16 * getResources().getDisplayMetrics().density);
-        layout.setPadding(pad, pad, pad, pad);
-        scroll.addView(layout);
-        LinearLayout frame = new LinearLayout(this);
-        frame.setOrientation(LinearLayout.VERTICAL);
-        frame.setFitsSystemWindows(true);
-        frame.addView(scroll, new LinearLayout.LayoutParams(-1, -1));
-        setContentView(frame);
-        TextView help = new TextView(this);
-        help.setText("WGS84 坐标：每行一个「纬度,经度」，按行顺序移动。也可导入单段 GPX。国内地图坐标请先确认坐标系。\n暂停和到达终点时保持位置，停止后恢复系统定位。");
-        layout.addView(help);
-        button(layout, "打开开发者选项", v -> {
+        setContentView(R.layout.activity_route);
+        points = findViewById(R.id.route_points);
+        speed = findViewById(R.id.route_speed);
+        status = findViewById(R.id.route_status);
+        importButton = findViewById(R.id.route_import);
+        start = findViewById(R.id.route_start);
+        pause = findViewById(R.id.route_pause);
+        resume = findViewById(R.id.route_resume);
+        stop = findViewById(R.id.route_stop);
+        findViewById(R.id.route_developer).setOnClickListener(v -> {
             try { startActivity(new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)); }
             catch (Exception error) { showError(error); }
         });
-        TextView label = new TextView(this); label.setText("有序途经点（WGS84）"); layout.addView(label);
-        points = new EditText(this);
-        points.setId(View.generateViewId()); label.setLabelFor(points.getId());
-        points.setGravity(android.view.Gravity.TOP);
-        points.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        points.setMinLines(4); points.setMaxLines(8);
-        points.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(RouteParser.MAX_BYTES)});
-        points.setHint("31.2304,121.4737\n31.2310,121.4740");
         points.setText(preferences.getString("points", ""));
-        layout.addView(points);
-        button(layout, "在地图中规划路线", v -> {
+        findViewById(R.id.route_map).setOnClickListener(v -> {
             try {
                 String draft = points.getText().toString();
                 RouteParser.draft(draft);
                 startActivityForResult(MapPickerActivity.intent(this, draft, true), 102);
             } catch (Exception error) { showError(error); }
         });
-        importButton = button(layout, "导入 GPX 文件", v -> {
+        importButton.setOnClickListener(v -> {
             try {
                 startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE), 101);
             } catch (Exception error) { showError(error); }
         });
-        TextView speedLabel = new TextView(this); speedLabel.setText("统一速度（km/h）"); layout.addView(speedLabel);
-        speed = new EditText(this); speed.setId(View.generateViewId()); speedLabel.setLabelFor(speed.getId());
-        speed.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        speed.setText(preferences.getString("speed", "8")); layout.addView(speed);
-        start = button(layout, "开始路线（替换当前模拟）", v -> {
+        speed.setText(preferences.getString("speed", "8"));
+        start.setOnClickListener(v -> {
             try {
                 pendingPoints = points.getText().toString();
                 pendingSpeed = Double.parseDouble(speed.getText().toString()) / 3.6;
@@ -100,16 +84,11 @@ public class RouteActivity extends Activity implements RuntimePermissions.Runtim
                 RuntimePermissions.requestPermissions(this, this);
             } catch (Exception error) { showError(error); }
         });
-        pause = button(layout, "暂停", v -> control(true));
-        resume = button(layout, "继续", v -> control(false));
-        stop = button(layout, "停止并恢复真实定位", v -> {
+        pause.setOnClickListener(v -> control(true));
+        resume.setOnClickListener(v -> control(false));
+        stop.setOnClickListener(v -> {
             try { LocationService.doStop(this, true); } catch (Exception error) { showError(error); }
         });
-        status = new TextView(this); status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE); layout.addView(status);
-        layout.requestFocus();
-    }
-    private Button button(LinearLayout layout, String text, View.OnClickListener listener) {
-        Button button = new Button(this); button.setText(text); button.setOnClickListener(listener); layout.addView(button); return button;
     }
     private void control(boolean paused) {
         try { LocationService.pauseRoute(this, paused); } catch (Exception error) { showError(error); }
@@ -157,6 +136,11 @@ public class RouteActivity extends Activity implements RuntimePermissions.Runtim
     }
     private void showError(Exception error) {
         new AlertDialog.Builder(this).setTitle("未能执行").setMessage(error.getMessage() == null ? "请检查输入和系统权限" : error.getMessage()).setPositiveButton("知道了", null).show();
+    }
+    @Override protected void onSaveInstanceState(Bundle state) {
+        super.onSaveInstanceState(state);
+        state.putString("pending_points", pendingPoints);
+        state.putDouble("pending_speed", pendingSpeed);
     }
     @Override protected void onResume() { super.onResume(); handler.post(refresh); }
     @Override protected void onPause() {

@@ -49,13 +49,15 @@ public class BookmarksActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_bookmarks);
+        setTitle(R.string.ui_bookmarks);
 
         backupRestoreMgr = new BackupRestoreMgr();
 
         listView    = (ListView) findViewById(R.id.listview);
         listItems   = SharedPrefs.getBookmarkItems(BookmarksActivity.this);
-        listAdapter = new ArrayAdapter<BookmarkItem>(BookmarksActivity.this, android.R.layout.simple_list_item_1, listItems);
+        listAdapter = new ArrayAdapter<BookmarkItem>(BookmarksActivity.this, R.layout.item_bookmark, listItems);
         listView.setAdapter(listAdapter);
+        listView.setEmptyView(findViewById(R.id.bookmarks_empty));
 
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override

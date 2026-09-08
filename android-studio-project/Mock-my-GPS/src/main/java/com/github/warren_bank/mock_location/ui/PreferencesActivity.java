@@ -29,6 +29,7 @@ public class PreferencesActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_preferences);
+        setTitle(R.string.ui_settings);
 
         originalState = new SharedPrefsState(PreferencesActivity.this, true);
 

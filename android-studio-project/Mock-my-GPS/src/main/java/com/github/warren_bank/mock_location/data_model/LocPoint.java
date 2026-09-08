@@ -64,11 +64,7 @@ public class LocPoint {
 
     @Override
     public String toString() {
-        return String.format(
-            "%1$s, %2$s",
-            mLatitude,
-            mLongitude
-        );
+        return mLatitude + ", " + mLongitude;
     }
 
     public boolean equals(LocPoint locPoint) {
@@ -80,7 +76,9 @@ public class LocPoint {
         double that_lat = locPoint.getLatitude();
         double that_lon = locPoint.getLongitude();
 
-        return (Math.abs(that_lat - mLatitude) < threshold) && (Math.abs(that_lon - mLongitude) < threshold); // todo: fix that longitude difference doesn't work if straddling opposite sides of the 180th meridian (ex: 179.99999 and -179.99999)
+        double longitudeDistance = Math.abs(that_lon - mLongitude);
+        return Math.abs(that_lat - mLatitude) < threshold
+            && Math.min(longitudeDistance, 360 - longitudeDistance) < threshold;
     }
 
 }

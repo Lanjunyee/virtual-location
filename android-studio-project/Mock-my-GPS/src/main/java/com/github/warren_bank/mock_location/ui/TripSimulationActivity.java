@@ -140,6 +140,7 @@ public class TripSimulationActivity extends Activity implements RuntimePermissio
                     if (LocationService.isStarted()) {
                         LocationService.doStop(TripSimulationActivity.this, true);
                         button_toggle_state.setText(R.string.label_button_start);
+                        button_toggle_state.setActivated(false);
                         button_update.setVisibility(View.GONE);
                     }
                     else {
@@ -219,6 +220,7 @@ public class TripSimulationActivity extends Activity implements RuntimePermissio
         }
 
         button_toggle_state.setText(LocationService.isStarted() ? R.string.label_button_stop : R.string.label_button_start);
+        button_toggle_state.setActivated(LocationService.isStarted());
 
         button_update.setVisibility(View.GONE);
     }
@@ -280,6 +282,7 @@ public class TripSimulationActivity extends Activity implements RuntimePermissio
         diff_fields = 0;
 
         button_toggle_state.setText(R.string.label_button_stop);
+        button_toggle_state.setActivated(true);
         button_update.setVisibility(View.GONE);
     }
 }

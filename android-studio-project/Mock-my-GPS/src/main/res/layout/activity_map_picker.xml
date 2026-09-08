@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:fitsSystemWindows="true">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="16dp" android:background="@color/ui_bg">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/ui_map_help" style="@style/UiHelp" android:id="@+id/map_help" />
+    <TextView android:id="@+id/map_status" android:layout_width="match_parent" android:layout_height="wrap_content" style="@style/UiHelp" android:accessibilityLiveRegion="polite" />
+    <org.osmdroid.views.MapView android:id="@+id/map_view" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:contentDescription="@string/ui_map_description" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+      <Button android:id="@+id/map_undo" android:layout_width="0dp" android:layout_height="wrap_content" android:text="@string/ui_undo" style="@style/UiButton" android:layout_weight="1" android:layout_margin="4dp" />
+      <Button android:id="@+id/map_clear" android:layout_width="0dp" android:layout_height="wrap_content" android:text="@string/ui_clear" style="@style/UiDanger" android:layout_weight="1" android:layout_margin="4dp" />
+      <Button android:id="@+id/map_confirm" android:layout_width="0dp" android:layout_height="wrap_content" android:text="@string/ui_confirm" style="@style/UiPrimary" android:layout_weight="1" android:layout_margin="4dp" />
+    </LinearLayout>
+  </LinearLayout>
+</FrameLayout>

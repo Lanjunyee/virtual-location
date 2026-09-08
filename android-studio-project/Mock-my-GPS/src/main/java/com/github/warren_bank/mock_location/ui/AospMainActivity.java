@@ -52,6 +52,7 @@ public class AospMainActivity extends ActivityGroup implements RuntimePermission
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        setTitle(R.string.ui_app_title);
         if (Build.VERSION.SDK_INT >= 23) getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
 
         tabHost = (TabHost) findViewById(android.R.id.tabhost);
@@ -61,10 +62,10 @@ public class AospMainActivity extends ActivityGroup implements RuntimePermission
         String tab_2_tag = getString(R.string.MainActivity_tab_2_tag);
 
         String tab_1_label = getString(R.string.MainActivity_tab_1_label);
-        String tab_2_label = getString(R.string.MainActivity_tab_2_label);
 
-        tabHost.addTab(tabHost.newTabSpec(tab_1_tag).setIndicator(tab_1_label).setContent(new Intent(this, FixedPositionActivity.class)));
-        tabHost.addTab(tabHost.newTabSpec(tab_2_tag).setIndicator(tab_2_label).setContent(new Intent(this, TripSimulationActivity.class)));
+        tabHost.getTabWidget().setStripEnabled(false);
+        tabHost.addTab(tabHost.newTabSpec(tab_1_tag).setIndicator(tabIndicator(tab_1_label)).setContent(new Intent(this, FixedPositionActivity.class)));
+        tabHost.addTab(tabHost.newTabSpec(tab_2_tag).setIndicator(tabIndicator(getString(R.string.ui_trip_tab))).setContent(new Intent(this, TripSimulationActivity.class)));
 
         final Intent intent = getIntent();
         if (intent == null)
@@ -77,6 +78,12 @@ public class AospMainActivity extends ActivityGroup implements RuntimePermission
 
         showToast(intent);
         requestPermissions();
+    }
+
+    private View tabIndicator(String label) {
+        TextView tab = (TextView) getLayoutInflater().inflate(R.layout.tab_indicator, tabHost.getTabWidget(), false);
+        tab.setText(label);
+        return tab;
     }
 
     private String getCurrentTabTag(Intent intent) {

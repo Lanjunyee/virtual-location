@@ -17,6 +17,7 @@ public class DeviceCheck extends Instrumentation {
     private final LinkedBlockingQueue<Location> locations = new LinkedBlockingQueue<>();
     private final StringBuilder log = new StringBuilder();
     private Context context;
+    private boolean uiOnly;
     private LocationManager manager;
     private Activity activity;
     private HandlerThread listenerThread;
@@ -26,7 +27,7 @@ public class DeviceCheck extends Instrumentation {
         public void onProviderDisabled(String provider) {}
         public void onStatusChanged(String provider, int status, Bundle extras) {}
     };
-    @Override public void onCreate(Bundle arguments) { super.onCreate(arguments); start(); }
+    @Override public void onCreate(Bundle arguments) { super.onCreate(arguments); uiOnly = arguments != null && "true".equals(arguments.getString("ui")); start(); }
     private void check(boolean condition, String label) {
         if (!condition) throw new AssertionError(label);
         log.append("PASS: ").append(label).append('\n');
@@ -46,10 +47,29 @@ public class DeviceCheck extends Instrumentation {
     }
     private void onMain(Runnable runnable) { runOnMainSync(runnable); }
     @Override public void onStart() {
+        if (uiOnly) { UiCheck.run(this); return; }
         Bundle result = new Bundle();
         try {
             context = getTargetContext();
             activity = startActivitySync(new Intent(context, RouteActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK));
+            onMain(() -> {
+                android.widget.EditText points = activity.findViewById(R.id.route_points);
+                android.widget.EditText speed = activity.findViewById(R.id.route_speed);
+                points.setText("1,2\n3,4"); points.setSelection(2);
+                speed.setText("12.5");
+            });
+            ActivityMonitor recreated = addMonitor(RouteActivity.class.getName(), null, false);
+            onMain(() -> activity.recreate());
+            activity = waitForMonitorWithTimeout(recreated, 5000);
+            removeMonitor(recreated);
+            check(activity != null, "route page recreated");
+            waitForIdleSync();
+            onMain(() -> {
+                android.widget.EditText points = activity.findViewById(R.id.route_points);
+                android.widget.EditText speed = activity.findViewById(R.id.route_speed);
+                check(points.getText().toString().equals("1,2\n3,4") && points.getSelectionStart() == 2
+                    && speed.getText().toString().equals("12.5"), "route draft and cursor survive recreation");
+            });
             manager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
             listenerThread = new HandlerThread("location-check"); listenerThread.start();
             manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, listener, listenerThread.getLooper());

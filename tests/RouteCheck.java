@@ -36,6 +36,13 @@ public class RouteCheck {
         check(route.position(31001).equals(points.get(2), 1e-9));
         check(route.isFinished() && route.speed() == 0);
         check(route.position(100000).equals(points.get(2), 1e-9));
+        RoutePlayback skipped = new RoutePlayback(points, length / 10, 0);
+        check(skipped.position(30000).equals(points.get(2), 1e-9));
+        check(Math.abs(skipped.bearing()) < 1e-5);
+        check(new LocPoint(0, 179.99999).equals(new LocPoint(0, -179.99999)));
+        check(new LocPoint(0, 180).equals(new LocPoint(0, -180), 1e-9));
+        check(!new LocPoint(0, 179).equals(new LocPoint(0, -179)));
+        check(new LocPoint(1.25, -2.5).toString().equals("1.25, -2.5"));
         RoutePlayback delayed = new RoutePlayback(points, length / 10, 0);
         check(delayed.position(15000).equals(new LocPoint(.0005,.001), 1e-9));
         RoutePlayback duplicate = new RoutePlayback(Arrays.asList(points.get(0), points.get(0), points.get(1)), length / 2, 0);

@@ -43,8 +43,8 @@ public final class RoutePlayback {
     public synchronized LocPoint position(long now) {
         if (!paused) travelled = Math.min(totalDistance(), travelled + Math.max(0, now - lastTime) * speed / 1000.0);
         lastTime = Math.max(lastTime, now);
-        if (isFinished()) return new LocPoint(points.get(points.size() - 1));
         while (segment < ends.length - 1 && travelled >= ends[segment]) segment++;
+        if (isFinished()) return new LocPoint(points.get(points.size() - 1));
         double start = segment == 0 ? 0 : ends[segment - 1];
         double length = ends[segment] - start;
         // ponytail: linear coordinate interpolation suits local routes; use geodesic interpolation for long polar segments.

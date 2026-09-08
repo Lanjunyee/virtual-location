@@ -13,13 +13,11 @@ import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.Gravity;
 import android.view.View;
-import android.widget.Button;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import com.github.warren_bank.mock_location.BuildConfig;
+import com.github.warren_bank.mock_location.R;
 import com.github.warren_bank.mock_location.data_model.LocPoint;
 import com.github.warren_bank.mock_location.data_model.RoutePlayback;
 import com.github.warren_bank.mock_location.data_model.SharedPrefs;
@@ -69,6 +67,7 @@ public class MapPickerActivity extends Activity implements MapEventsReceiver {
     private MapView map;
     private TextView status;
     private boolean multiple;
+    private boolean userSelected;
     private LocationManager locationManager;
     private Location staleLocation;
     private final Runnable locationTimeout = () -> showLocation(staleLocation);
@@ -93,11 +92,12 @@ public class MapPickerActivity extends Activity implements MapEventsReceiver {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        setTitle("地图选择");
+        setTitle(R.string.ui_map_title);
         if (android.os.Build.VERSION.SDK_INT >= 23)
             getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
 
         multiple = getIntent().getBooleanExtra(EXTRA_MULTIPLE, false);
+        userSelected = state != null && state.getBoolean("user_selected");
         String initial = state == null ? getIntent().getStringExtra(EXTRA_POINTS) : state.getString(STATE_POINTS, "");
         try {
             points.addAll(RouteParser.draft(initial == null ? "" : initial));
@@ -113,36 +113,17 @@ public class MapPickerActivity extends Activity implements MapEventsReceiver {
         Configuration.getInstance().setOsmdroidTileCache(new File(base, "tiles"));
         Configuration.getInstance().setUserAgentValue(BuildConfig.APPLICATION_ID + "/" + BuildConfig.VERSION_NAME);
 
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        int pad = (int) (8 * getResources().getDisplayMetrics().density);
-        root.setPadding(pad, pad, pad, pad);
-
-        TextView help = new TextView(this);
-        help.setText(multiple
-            ? "轻触地图依次添加 WGS84 途经点；路线按直线连接。"
-            : "轻触地图选择一个 WGS84 位置。");
-        root.addView(help);
-
-        status = new TextView(this);
-        status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        root.addView(status);
-
-        map = new MapView(this);
-        map.setContentDescription("地图，轻触选择位置");
+        setContentView(R.layout.activity_map_picker);
+        TextView help = findViewById(R.id.map_help);
+        help.setText(multiple ? R.string.ui_map_route_help : R.string.ui_map_help);
+        status = findViewById(R.id.map_status);
+        map = findViewById(R.id.map_view);
         map.setTileSource(CHINA_TILES);
         map.setMultiTouchControls(true);
         map.setBuiltInZoomControls(true);
-        root.addView(map, new LinearLayout.LayoutParams(-1, 0, 1));
-
-        LinearLayout controls = new LinearLayout(this);
-        controls.setGravity(Gravity.CENTER);
-        controls.setOrientation(LinearLayout.HORIZONTAL);
-        controls.addView(button("撤销", v -> undo()), new LinearLayout.LayoutParams(0, -2, 1));
-        controls.addView(button("清空", v -> { points.clear(); refresh(); }), new LinearLayout.LayoutParams(0, -2, 1));
-        controls.addView(button("确认", v -> confirm()), new LinearLayout.LayoutParams(0, -2, 1));
-        root.addView(controls);
-        setContentView(root);
+        findViewById(R.id.map_undo).setOnClickListener(v -> undo());
+        findViewById(R.id.map_clear).setOnClickListener(v -> { cancelInitialLocation(); points.clear(); refresh(); });
+        findViewById(R.id.map_confirm).setOnClickListener(v -> confirm());
 
         refresh();
         if (state != null && state.containsKey(STATE_LAT)) {
@@ -153,14 +134,13 @@ public class MapPickerActivity extends Activity implements MapEventsReceiver {
         }
     }
 
-    private Button button(String text, View.OnClickListener listener) {
-        Button button = new Button(this);
-        button.setText(text);
-        button.setOnClickListener(listener);
-        return button;
+    private void cancelInitialLocation() {
+        userSelected = true;
+        stopLocating();
     }
 
     private void undo() {
+        cancelInitialLocation();
         if (!points.isEmpty()) points.remove(points.size() - 1);
         refresh();
     }
@@ -222,6 +202,7 @@ public class MapPickerActivity extends Activity implements MapEventsReceiver {
     }
 
     private void locate() {
+        if (userSelected || isFinishing() || isDestroyed()) return;
         if (android.os.Build.VERSION.SDK_INT >= 23
             && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
             && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -262,6 +243,7 @@ public class MapPickerActivity extends Activity implements MapEventsReceiver {
 
     private void showLocation(Location location) {
         stopLocating();
+        if (userSelected || isFinishing() || isDestroyed()) return;
         if (location == null) {
             if (multiple && points.isEmpty()) { points.add(SharedPrefs.getTripOrigin(this)); refresh(); }
             fitPoints();
@@ -313,6 +295,7 @@ public class MapPickerActivity extends Activity implements MapEventsReceiver {
     }
 
     @Override public boolean singleTapConfirmedHelper(GeoPoint point) {
+        cancelInitialLocation();
         if (multiple) {
             if (points.size() >= 10000) {
                 Toast.makeText(this, "路线最多 10000 个点", Toast.LENGTH_SHORT).show();
@@ -331,6 +314,7 @@ public class MapPickerActivity extends Activity implements MapEventsReceiver {
     @Override protected void onSaveInstanceState(Bundle state) {
         super.onSaveInstanceState(state);
         state.putString(STATE_POINTS, RouteParser.format(points));
+        state.putBoolean("user_selected", userSelected);
         if (map != null) {
             IGeoPoint center = map.getMapCenter();
             state.putDouble(STATE_LAT, center.getLatitude());

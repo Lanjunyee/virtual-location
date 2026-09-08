@@ -1,0 +1,35 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="ui_wgs84">WGS84 · 纬度，经度</string>
+  <string name="ui_duration">移动时长（秒）</string>
+  <string name="ui_refresh">定位刷新</string>
+  <string name="ui_joystick">悬浮摇杆</string>
+  <string name="ui_route_title">路线模拟</string>
+  <string name="ui_route_help">按顺序输入 WGS84 途经点。暂停保持当前位置，停止后恢复系统定位。</string>
+  <string name="ui_developer">打开开发者选项</string>
+  <string name="ui_points">有序途经点 · WGS84</string>
+  <string name="ui_points_hint">31.2304,121.4737\n31.2310,121.4740</string>
+  <string name="ui_plan_route">在地图中规划路线</string>
+  <string name="ui_import">导入 GPX 文件</string>
+  <string name="ui_speed">移动速度（km/h）</string>
+  <string name="ui_playback">播放控制</string>
+  <string name="ui_start_route">开始路线 · 替换当前模拟</string>
+  <string name="ui_pause">暂停</string>
+  <string name="ui_resume">继续</string>
+  <string name="ui_stop">停止并恢复真实定位</string>
+  <string name="ui_map_title">地图选择</string>
+  <string name="ui_map_help">轻触地图选择 WGS84 位置。</string>
+  <string name="ui_map_route_help">轻触地图依次添加途经点，各点按直线连接。</string>
+  <string name="ui_map_description">地图，轻触选择位置</string>
+  <string name="ui_undo">撤销</string>
+  <string name="ui_clear">清空</string>
+  <string name="ui_confirm">确认</string>
+  <string name="ui_empty_bookmarks">还没有收藏的位置\n通过右上角菜单添加第一个书签。</string>
+  <string name="ui_app_title">虚拟定位</string>
+  <string name="ui_location">位置坐标</string>
+  <string name="ui_origin">起点位置</string>
+  <string name="ui_destination">终点位置</string>
+  <string name="ui_trip_tab">两点移动</string>
+  <string name="ui_settings">设置</string>
+  <string name="ui_bookmarks">书签</string>
+</resources>

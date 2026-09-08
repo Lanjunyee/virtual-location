@@ -10,3 +10,5 @@ sh android-studio-project/gradlew -p android-studio-project \
 mkdir -p dist
 cp android-studio-project/Mock-my-GPS/build/outputs/apk/englishWithAospLocationProvidersWithBackupRestoreSAF/debug/*.apk dist/virtual-location-aosp.apk
 cp android-studio-project/Mock-my-GPS/build/outputs/apk/englishWithHuaweiMobileServicesFusedLocationProviderWithBackupRestoreSAF/debug/*.apk dist/virtual-location-hms.apk
+
+(cd dist && shasum -a 256 virtual-location-aosp.apk virtual-location-hms.apk > SHA256SUMS.txt)

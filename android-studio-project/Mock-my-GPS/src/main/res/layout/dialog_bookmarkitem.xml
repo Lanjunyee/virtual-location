@@ -1,67 +1,13 @@
-<?xml version="1.0" encoding="utf-8"?>
-
-<ScrollView
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_height="match_parent"
-    android:layout_width="match_parent">
-
-    <LinearLayout
-        android:orientation="vertical"
-        android:layout_gravity="left"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginLeft="20dp"
-        android:layout_marginRight="20dp"
-        android:padding="20dp">
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/edit_bookmark_field_1"
-            style="@style/input_label_textview" />
-
-        <EditText
-            android:id="@+id/input_bookmark_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="textMultiLine" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/edit_bookmark_field_2"
-            style="@style/input_label_textview" />
-
-        <EditText
-            android:id="@+id/input_bookmark_location"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="number|textMultiLine" />
-
-        <LinearLayout
-            android:layout_marginTop="10dp"
-            android:orientation="horizontal"
-            android:layout_gravity="center"
-            android:gravity="center"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content">
-
-            <Button
-                android:id="@+id/button_delete"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:padding="10dp"
-                android:text="@string/label_button_delete" />
-
-            <Button
-                android:layout_marginLeft="20dp"
-                android:id="@+id/button_save"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:padding="10dp"
-                android:text="@string/label_button_save" />
-
-        </LinearLayout>
-
+<?xml version='1.0' encoding='utf-8'?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:fitsSystemWindows="true" android:background="@color/ui_bg">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp" android:focusableInTouchMode="true">
+    <LinearLayout style="@style/UiCard">
+      <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/edit_bookmark_field_1" style="@style/UiLabel" android:labelFor="@id/input_bookmark_title" />
+      <EditText android:id="@+id/input_bookmark_title" android:layout_width="match_parent" android:layout_height="wrap_content" style="@style/UiInput" android:inputType="textMultiLine" />
+      <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/edit_bookmark_field_2" style="@style/UiLabel" android:labelFor="@id/input_bookmark_location" />
+      <EditText android:id="@+id/input_bookmark_location" android:layout_width="match_parent" android:layout_height="wrap_content" style="@style/UiInput" android:inputType="textNoSuggestions|textMultiLine" />
     </LinearLayout>
+    <Button android:id="@+id/button_save" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/label_button_save" style="@style/UiPrimary" />
+    <Button android:id="@+id/button_delete" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/label_button_delete" style="@style/UiDanger" />
+  </LinearLayout>
 </ScrollView>
