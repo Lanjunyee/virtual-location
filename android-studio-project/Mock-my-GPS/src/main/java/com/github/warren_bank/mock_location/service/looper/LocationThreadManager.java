@@ -23,10 +23,6 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
     private JoyStickView mJoyStickView;
     private LocationThread mLocationThread;
     private LocPoint mCurrentLocPoint;
-    private LocPoint mOriginLocPoint;
-    private LocPoint mTargetLocPoint;
-    private int mFlyTime;
-    private int mFlyTimeIndex;
 
     private int mTimeInterval;
     private int mFixedCount;
@@ -36,6 +32,7 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
     private boolean mTripHoldDestination;
 
     private RoutePlayback route;
+    private RoutePlayback fly;
 
     private boolean mIsStarted = false;
     private boolean mIsFlyMode = false;
@@ -73,6 +70,7 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
 
     public synchronized void stop() {
         route = null;
+        fly = null;
         mIsFlyMode = false;
         MockLocationProvider.setMotion(0, 0);
         if (mLocationThread != null) {
@@ -120,6 +118,7 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
     public synchronized void startRoute(List<LocPoint> points, double speed) {
         RoutePlayback next = new RoutePlayback(points, speed, SystemClock.elapsedRealtime());
         route = next;
+        fly = null;
         mIsFlyMode = false;
         mTimeInterval = 1000;
         hideJoyStick();
@@ -127,6 +126,8 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
     }
 
     public synchronized boolean hasRoute() { return route != null; }
+    public synchronized boolean isRoutePaused() { return route != null && route.isPaused(); }
+    public synchronized boolean isRouteFinished() { return route != null && route.isFinished(); }
     public synchronized void pauseRoute(boolean paused) {
         if (route != null) route.setPaused(paused, SystemClock.elapsedRealtime());
     }
@@ -142,8 +143,18 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
             MockLocationProvider.setMotion(route.speed(), route.bearing());
             return new LocPoint(mCurrentLocPoint);
         }
+        if (mIsFlyMode) {
+            mCurrentLocPoint = fly.position(SystemClock.elapsedRealtime());
+            MockLocationProvider.setMotion(fly.speed(), fly.bearing());
+            if (fly.isFinished()) {
+                fly = null;
+                mIsFlyMode = false;
+                mFixedCountRemaining = mTripHoldDestination ? mFixedCount : -1;
+            }
+            return new LocPoint(mCurrentLocPoint);
+        }
         MockLocationProvider.setMotion(0, 0);
-        if (!mIsFlyMode && (mFixedCountRemaining != 0)) {
+        if (mFixedCountRemaining != 0) {
             if (mFixedCountRemaining < 0) {
                 return null;
             }
@@ -154,30 +165,12 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
                 mFixedCountRemaining--;
             }
         }
-
-        if (!mIsFlyMode) {
-            return new LocPoint(mCurrentLocPoint);
-        }
-
-        if (mFlyTimeIndex >= mFlyTime) {
-            jumpToLocation(mTargetLocPoint);
-            mFixedCountRemaining = (mTripHoldDestination) ? mFixedCount : -1;
-            return new LocPoint(mCurrentLocPoint);
-        }
-        else {
-            float factor = (float) mFlyTimeIndex / (float) mFlyTime;
-            mCurrentLocPoint = LocPoint.interpolate(mOriginLocPoint, mTargetLocPoint, factor);
-            mFlyTimeIndex++;
-            return new LocPoint(mCurrentLocPoint);
-        }
+        return new LocPoint(mCurrentLocPoint);
     }
 
     public synchronized boolean shouldContinue() {
         if (route != null) return mIsStarted;
-        boolean is_done = (
-                (!mIsFlyMode && (mFixedCountRemaining < 0))
-            ||  ( mIsFlyMode && (mFlyTimeIndex > mFlyTime))
-        );
+        boolean is_done = !mIsFlyMode && (mFixedCountRemaining < 0);
 
         if (is_done) {
             stop();
@@ -189,6 +182,7 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
     public synchronized void jumpToLocation(LocPoint location) {
         LocPoint.validate(location.getLatitude(), location.getLongitude());
         route = null;
+        fly = null;
         mIsFlyMode = false;
         mCurrentLocPoint = new LocPoint(location);
     }
@@ -201,11 +195,8 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
             hideJoyStick();
         }
 
-        mOriginLocPoint = new LocPoint(mCurrentLocPoint);
-        mTargetLocPoint = new LocPoint(location);
-        mIsFlyMode      = true;
-        mFlyTimeIndex   = 0;
-        mFlyTime        = convertFlyTime_secondsToLoopIterations(trip_duration_seconds, mTimeInterval);
+        fly = RoutePlayback.forDuration(mCurrentLocPoint, location, trip_duration_seconds * 1000L, SystemClock.elapsedRealtime());
+        mIsFlyMode = true;
     }
 
     public synchronized boolean isFlyMode() {
@@ -213,6 +204,7 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
     }
 
     public synchronized void stopFlyMode() {
+        fly = null;
         mIsFlyMode = false;
     }
 
@@ -267,8 +259,6 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
         }
 
         if (mTimeInterval != prefsState.time_interval) {
-            updateFlyTime(prefsState.time_interval);
-
             mTimeInterval = prefsState.time_interval;
 
             if ((mLocationThread != null) && mLocationThread.isAlive()) {
@@ -289,44 +279,6 @@ public class LocationThreadManager implements IJoyStickPresenter, ISharedPrefsLi
 
         mFixedJoystickIncrement = prefsState.fixed_joystick_increment;
         mTripHoldDestination    = prefsState.trip_hold_destination;
-
-        /*
-        mCurrentLocPoint = new LocPoint(prefsState.trip_origin_lat,      prefsState.trip_origin_lon);
-        mOriginLocPoint  = new LocPoint(prefsState.trip_origin_lat,      prefsState.trip_origin_lon);
-        mTargetLocPoint  = new LocPoint(prefsState.trip_destination_lat, prefsState.trip_destination_lon);
-        mFlyTime         = prefsState.trip_duration;
-        */
-    }
-
-    // =================================
-    // mFlyTime counts the number of loop iterations that occur @ mTimeInterval
-    // - when mTimeInterval changes, mFlyTime needs to be recalculated
-    // - call this method BEFORE mTimeInterval is changed
-    // =================================
-    private void updateFlyTime(int new_time_interval) {
-        if (!mIsStarted || !mIsFlyMode || (mFlyTimeIndex >= mFlyTime))
-            return;
-
-        int remaining_trip_duration_seconds    = convertFlyTime_loopIterationsToSeconds(mFlyTime - mFlyTimeIndex, mTimeInterval);
-        int remaining_trip_duration_iterations = convertFlyTime_secondsToLoopIterations(remaining_trip_duration_seconds, new_time_interval);
-
-        mOriginLocPoint = new LocPoint(mCurrentLocPoint);
-        mFlyTimeIndex   = 0;
-        mFlyTime        = remaining_trip_duration_iterations;
-    }
-
-    // =================================
-    // static helpers
-    // =================================
-
-    private static int convertFlyTime_secondsToLoopIterations(int trip_duration_seconds, int time_interval) {
-        // (1 loop iteration / time_interval ms)(1000 ms / 1 sec)(trip_duration_seconds secs)
-        return (int) Math.ceil((1000f / time_interval) * trip_duration_seconds);
-    }
-
-    private static int convertFlyTime_loopIterationsToSeconds(int trip_duration_iterations, int time_interval) {
-        // (time_interval ms / 1 loop iteration)(1 sec / 1000 ms)(trip_duration_iterations loop iterations)
-        return (int) Math.ceil((time_interval / 1000f) * trip_duration_iterations);
     }
 
 }

@@ -33,10 +33,7 @@ public class RouteActivity extends Activity implements RuntimePermissions.Runtim
     private boolean importing;
     private final Runnable refresh = new Runnable() {
         public void run() {
-            status.setText(LocationService.status());
-            boolean route = LocationService.isStarted() && LocationService.getLocationThreadManager().hasRoute();
-            pause.setEnabled(route); resume.setEnabled(route);
-            stop.setEnabled(LocationService.isStarted());
+            refreshRuntimeState();
             handler.postDelayed(this, 1000);
         }
     };
@@ -87,14 +84,38 @@ public class RouteActivity extends Activity implements RuntimePermissions.Runtim
         pause.setOnClickListener(v -> control(true));
         resume.setOnClickListener(v -> control(false));
         stop.setOnClickListener(v -> {
-            try { LocationService.doStop(this, true); } catch (Exception error) { showError(error); }
+            try {
+                LocationService.doStop(this, true);
+                refreshSoon();
+            } catch (Exception error) { showError(error); }
         });
     }
     private void control(boolean paused) {
-        try { LocationService.pauseRoute(this, paused); } catch (Exception error) { showError(error); }
+        try {
+            LocationService.pauseRoute(this, paused);
+            refreshSoon();
+        } catch (Exception error) { showError(error); }
+    }
+    private void refreshSoon() {
+        handler.postDelayed(() -> { if (!isDestroyed()) refreshRuntimeState(); }, 100);
+    }
+    private void refreshRuntimeState() {
+        boolean running = LocationService.isStarted();
+        boolean route = running && LocationService.getLocationThreadManager().hasRoute();
+        boolean paused = route && LocationService.getLocationThreadManager().isRoutePaused();
+        boolean finished = route && LocationService.getLocationThreadManager().isRouteFinished();
+        status.setText(LocationService.status());
+        importButton.setEnabled(!importing);
+        start.setEnabled(!importing);
+        pause.setEnabled(route && !paused && !finished);
+        resume.setEnabled(route && paused && !finished);
+        stop.setEnabled(running);
     }
     @Override public void onPermissionsGranted() {
-        try { LocationService.doRoute(this, pendingPoints, pendingSpeed); } catch (Exception error) { showError(error); }
+        try {
+            LocationService.doRoute(this, pendingPoints, pendingSpeed);
+            refreshSoon();
+        } catch (Exception error) { showError(error); }
     }
     @Override public void onPermissionsDenied(String[] permissions) { showError(new IllegalStateException("请授予精确定位权限后再开始")); }
     @Override public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
@@ -132,7 +153,7 @@ public class RouteActivity extends Activity implements RuntimePermissions.Runtim
     }
     private void finishImport() {
         importing = false;
-        if (!isDestroyed()) { importButton.setEnabled(true); start.setEnabled(true); }
+        if (!isDestroyed()) refreshRuntimeState();
     }
     private void showError(Exception error) {
         new AlertDialog.Builder(this).setTitle("未能执行").setMessage(error.getMessage() == null ? "请检查输入和系统权限" : error.getMessage()).setPositiveButton("知道了", null).show();

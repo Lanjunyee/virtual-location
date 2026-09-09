@@ -36,6 +36,16 @@ public class RouteCheck {
         check(route.position(31001).equals(points.get(2), 1e-9));
         check(route.isFinished() && route.speed() == 0);
         check(route.position(100000).equals(points.get(2), 1e-9));
+        RoutePlayback trip = RoutePlayback.forDuration(points.get(0), points.get(1), 10000, 1000);
+        check(trip.position(3500).equals(new LocPoint(0, .00025), 1e-9));
+        check(Math.abs(trip.speed() - length / 10) < 1e-5 && Math.abs(trip.bearing() - 90) < 1e-5);
+        check(trip.position(11000).equals(points.get(1), 1e-9) && trip.isFinished() && trip.speed() == 0);
+        RoutePlayback delayedTrip = RoutePlayback.forDuration(points.get(0), points.get(1), 10000, 0);
+        check(delayedTrip.position(17500).equals(points.get(1), 1e-9));
+        RoutePlayback stationaryTrip = RoutePlayback.forDuration(points.get(0), points.get(0), 10000, 0);
+        check(stationaryTrip.position(5000).equals(points.get(0), 1e-9) && !stationaryTrip.isFinished() && stationaryTrip.speed() == 0);
+        check(stationaryTrip.position(10000).equals(points.get(0), 1e-9) && stationaryTrip.isFinished());
+        reject(() -> RoutePlayback.forDuration(points.get(0), points.get(1), 0, 0));
         RoutePlayback skipped = new RoutePlayback(points, length / 10, 0);
         check(skipped.position(30000).equals(points.get(2), 1e-9));
         check(Math.abs(skipped.bearing()) < 1e-5);

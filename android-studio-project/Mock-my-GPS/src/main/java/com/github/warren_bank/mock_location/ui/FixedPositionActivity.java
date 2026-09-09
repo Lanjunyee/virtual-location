@@ -19,7 +19,7 @@ import android.widget.TextView;
 
 public class FixedPositionActivity extends Activity implements RuntimePermissionsListener {
     private LocPoint originalLoc;
-    private String pendingMapSelection;
+    private android.content.SharedPreferences drafts;
 
     private TextView label_fixed_position;
     private TextView input_fixed_position;
@@ -51,20 +51,7 @@ public class FixedPositionActivity extends Activity implements RuntimePermission
             public void afterTextChanged(Editable s) {
                 label_fixed_position.setVisibility(View.GONE);
 
-                if (!LocationService.isStarted()) return;
-
-                try {
-                    String fixed_position = s.toString();
-                    LocPoint modifiedLoc  = new LocPoint(fixed_position);
-
-                    if (originalLoc.equals(modifiedLoc)) {
-                        button_update.setVisibility(View.GONE);
-                    }
-                    else {
-                        button_update.setVisibility(View.VISIBLE);
-                    }
-                }
-                catch(Exception e) {}
+                refreshRuntimeState();
             }
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             public void onTextChanged(CharSequence s, int start, int before, int count) {}
@@ -102,16 +89,31 @@ public class FixedPositionActivity extends Activity implements RuntimePermission
                 catch(Exception e) { android.widget.Toast.makeText(FixedPositionActivity.this, e.getMessage() == null ? "输入或操作无效" : e.getMessage(), android.widget.Toast.LENGTH_SHORT).show(); }
             }
         });
+        drafts = getSharedPreferences("fixed_draft", MODE_PRIVATE);
+        initializeInputs();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        reset();
-        if (pendingMapSelection != null) {
-            input_fixed_position.setText(pendingMapSelection);
-            pendingMapSelection = null;
-        }
+        refreshRuntimeState();
+    }
+
+    @Override protected void onPause() {
+        drafts.edit().putString("position", input_fixed_position.getText().toString()).apply();
+        super.onPause();
+    }
+
+    public void refreshRuntimeState() {
+        boolean running = LocationService.isStarted();
+        button_toggle_state.setText(running ? R.string.label_button_stop : R.string.label_button_start);
+        button_toggle_state.setActivated(running);
+        button_toggle_state.setEnabled(true);
+        boolean changed = false;
+        try { changed = !originalLoc.equals(new LocPoint(input_fixed_position.getText().toString())); }
+        catch (Exception ignored) {}
+        button_update.setVisibility(running && changed ? View.VISIBLE : View.GONE);
+        button_update.setEnabled(running && changed);
     }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -119,25 +121,23 @@ public class FixedPositionActivity extends Activity implements RuntimePermission
         if (requestCode == 201 && resultCode == RESULT_OK) {
             String selected = MapPickerActivity.result(data);
             if (selected != null) {
-                pendingMapSelection = selected.trim();
-                input_fixed_position.setText(pendingMapSelection);
+                input_fixed_position.setText(selected.trim());
             }
         }
     }
 
-    private void reset() {
-        input_fixed_position.setText(originalLoc.toString());
+    private void initializeInputs() {
+        input_fixed_position.setText(drafts.getString("position", originalLoc.toString()));
 
-        BookmarkItem bmItem = SharedPrefs.getBookmarkItem(FixedPositionActivity.this, originalLoc);
-        if (bmItem != null) {
-            label_fixed_position.setText(bmItem.title);
-            label_fixed_position.setVisibility(View.VISIBLE);
-        }
-
-        button_toggle_state.setText(LocationService.isStarted() ? R.string.label_button_stop : R.string.label_button_start);
-        button_toggle_state.setActivated(LocationService.isStarted());
-
-        button_update.setVisibility(View.GONE);
+        try {
+            LocPoint point = new LocPoint(input_fixed_position.getText().toString());
+            BookmarkItem bmItem = SharedPrefs.getBookmarkItem(this, point);
+            if (bmItem != null) {
+                label_fixed_position.setText(bmItem.title);
+                label_fixed_position.setVisibility(View.VISIBLE);
+            }
+        } catch (Exception ignored) {}
+        refreshRuntimeState();
     }
 
     // =============================================================================================

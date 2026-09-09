@@ -34,9 +34,20 @@ public class AospMainActivity extends ActivityGroup implements RuntimePermission
         public void run() {
             ((TextView) findViewById(R.id.session_status)).setText(LocationService.status());
             android.app.Activity current = getCurrentActivity();
-            if (current != null) {
+            if (current instanceof FixedPositionActivity) {
+                ((FixedPositionActivity) current).refreshRuntimeState();
+            }
+            else if (current instanceof TripSimulationActivity) {
+                ((TripSimulationActivity) current).refreshRuntimeState();
+            }
+            else if (current != null) {
                 TextView button = current.findViewById(R.id.button_toggle_state);
-                if (button != null) button.setText(LocationService.isStarted() ? R.string.label_button_stop : R.string.label_button_start);
+                if (button != null) {
+                    boolean running = LocationService.isStarted();
+                    button.setText(running ? R.string.label_button_stop : R.string.label_button_start);
+                    button.setActivated(running);
+                    button.setEnabled(true);
+                }
             }
             statusHandler.postDelayed(this, 1000);
         }

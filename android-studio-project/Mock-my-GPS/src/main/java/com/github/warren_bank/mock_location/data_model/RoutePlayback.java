@@ -8,15 +8,29 @@ public final class RoutePlayback {
     private final List<LocPoint> points = new ArrayList<>();
     private final double[] ends;
     private final double speed;
+    private final long duration;
     private double travelled;
+    private long elapsed;
     private long lastTime;
     private int segment;
     private boolean paused;
 
     public RoutePlayback(List<LocPoint> input, double metersPerSecond, long now) {
+        this(input, metersPerSecond, 0, now);
+    }
+
+    public static RoutePlayback forDuration(LocPoint origin, LocPoint destination, long durationMillis, long now) {
+        if (durationMillis <= 0) throw new IllegalArgumentException("移动时间必须大于 0");
+        List<LocPoint> points = new ArrayList<>();
+        points.add(origin);
+        points.add(destination);
+        return new RoutePlayback(points, 0, durationMillis, now);
+    }
+
+    private RoutePlayback(List<LocPoint> input, double metersPerSecond, long durationMillis, long now) {
         if (input == null || input.size() < 2 || input.size() > 10000)
             throw new IllegalArgumentException("路线需要 2～10000 个点");
-        if (Double.isNaN(metersPerSecond) || Double.isInfinite(metersPerSecond) || metersPerSecond <= 0 || metersPerSecond > 100)
+        if (durationMillis == 0 && (Double.isNaN(metersPerSecond) || Double.isInfinite(metersPerSecond) || metersPerSecond <= 0 || metersPerSecond > 100))
             throw new IllegalArgumentException("速度必须大于 0 且不超过 360 km/h");
         for (LocPoint point : input) {
             LocPoint.validate(point.getLatitude(), point.getLongitude());
@@ -28,8 +42,9 @@ public final class RoutePlayback {
             total += distance(points.get(i), points.get(i + 1));
             ends[i] = total;
         }
-        if (total < 0.01) throw new IllegalArgumentException("路线至少需要两个不同的位置");
-        speed = metersPerSecond;
+        if (durationMillis == 0 && total < 0.01) throw new IllegalArgumentException("路线至少需要两个不同的位置");
+        speed = durationMillis == 0 ? metersPerSecond : total * 1000.0 / durationMillis;
+        duration = durationMillis;
         lastTime = now;
     }
 
@@ -41,8 +56,18 @@ public final class RoutePlayback {
     }
 
     public synchronized LocPoint position(long now) {
-        if (!paused) travelled = Math.min(totalDistance(), travelled + Math.max(0, now - lastTime) * speed / 1000.0);
-        lastTime = Math.max(lastTime, now);
+        long nextTime = Math.max(lastTime, now);
+        long delta = nextTime - lastTime;
+        if (!paused) {
+            if (duration > 0) {
+                elapsed += Math.min(delta, duration - elapsed);
+                travelled = totalDistance() * elapsed / duration;
+            }
+            else {
+                travelled = Math.min(totalDistance(), travelled + delta * speed / 1000.0);
+            }
+        }
+        lastTime = nextTime;
         while (segment < ends.length - 1 && travelled >= ends[segment]) segment++;
         if (isFinished()) return new LocPoint(points.get(points.size() - 1));
         double start = segment == 0 ? 0 : ends[segment - 1];
@@ -56,7 +81,7 @@ public final class RoutePlayback {
         paused = value;
     }
     public synchronized boolean isPaused() { return paused; }
-    public synchronized boolean isFinished() { return travelled >= totalDistance(); }
+    public synchronized boolean isFinished() { return duration > 0 ? elapsed >= duration : travelled >= totalDistance(); }
     public synchronized float speed() { return paused || isFinished() ? 0 : (float) speed; }
     public double totalDistance() { return ends[ends.length - 1]; }
     public synchronized float bearing() {

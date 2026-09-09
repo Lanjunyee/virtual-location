@@ -21,8 +21,7 @@ public class TripSimulationActivity extends Activity implements RuntimePermissio
     private LocPoint originalLocOrigin;
     private LocPoint originalLocDestination;
     private int originalTripDuration;
-    private String pendingMapOrigin;
-    private String pendingMapDestination;
+    private android.content.SharedPreferences drafts;
 
     private TextView label_trip_origin;
     private TextView input_trip_origin;
@@ -58,7 +57,6 @@ public class TripSimulationActivity extends Activity implements RuntimePermissio
             public void afterTextChanged(Editable s) {
                 label_trip_origin.setVisibility(View.GONE);
 
-                if (!LocationService.isStarted()) return;
 
                 try {
                     String trip_origin = s.toString();
@@ -75,7 +73,7 @@ public class TripSimulationActivity extends Activity implements RuntimePermissio
                     }
                     checkDiff();
                 }
-                catch(Exception e) {}
+                catch(Exception e) { checkDiff(); }
             }
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             public void onTextChanged(CharSequence s, int start, int before, int count) {}
@@ -85,7 +83,6 @@ public class TripSimulationActivity extends Activity implements RuntimePermissio
             public void afterTextChanged(Editable s) {
                 label_trip_destination.setVisibility(View.GONE);
 
-                if (!LocationService.isStarted()) return;
 
                 try {
                     String trip_destination = s.toString();
@@ -102,7 +99,7 @@ public class TripSimulationActivity extends Activity implements RuntimePermissio
                     }
                     checkDiff();
                 }
-                catch(Exception e) {}
+                catch(Exception e) { checkDiff(); }
             }
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             public void onTextChanged(CharSequence s, int start, int before, int count) {}
@@ -110,14 +107,13 @@ public class TripSimulationActivity extends Activity implements RuntimePermissio
 
         input_trip_duration.addTextChangedListener(new TextWatcher() {
             public void afterTextChanged(Editable s) {
-                if (!LocationService.isStarted()) return;
 
                 try {
                     String trip_duration = s.toString();
                     int modifiedTripDuration = Integer.parseInt(trip_duration, 10);
                     short mask = (1 << 2);  // 0x0004
 
-                    if (originalTripDuration != modifiedTripDuration) {
+                    if (originalTripDuration == modifiedTripDuration) {
                         // flip bit[2] to 0
                         diff_fields &= ~mask;
                     }
@@ -127,7 +123,7 @@ public class TripSimulationActivity extends Activity implements RuntimePermissio
                     }
                     checkDiff();
                 }
-                catch(Exception e) {}
+                catch(Exception e) { checkDiff(); }
             }
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             public void onTextChanged(CharSequence s, int start, int before, int count) {}
@@ -165,20 +161,29 @@ public class TripSimulationActivity extends Activity implements RuntimePermissio
                 catch(Exception e) { android.widget.Toast.makeText(TripSimulationActivity.this, e.getMessage() == null ? "输入或操作无效" : e.getMessage(), android.widget.Toast.LENGTH_SHORT).show(); }
             }
         });
+        drafts = getSharedPreferences("trip_draft", MODE_PRIVATE);
+        initializeInputs();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        reset();
-        if (pendingMapOrigin != null) {
-            input_trip_origin.setText(pendingMapOrigin);
-            pendingMapOrigin = null;
-        }
-        if (pendingMapDestination != null) {
-            input_trip_destination.setText(pendingMapDestination);
-            pendingMapDestination = null;
-        }
+        refreshRuntimeState();
+    }
+
+    @Override protected void onPause() {
+        drafts.edit().putString("origin", input_trip_origin.getText().toString())
+            .putString("destination", input_trip_destination.getText().toString())
+            .putString("duration", input_trip_duration.getText().toString()).apply();
+        super.onPause();
+    }
+
+    public void refreshRuntimeState() {
+        boolean running = LocationService.isStarted();
+        button_toggle_state.setText(running ? R.string.label_button_stop : R.string.label_button_start);
+        button_toggle_state.setActivated(running);
+        button_toggle_state.setEnabled(true);
+        checkDiff();
     }
 
     private void openMap(TextView input, int requestCode) {
@@ -195,43 +200,45 @@ public class TripSimulationActivity extends Activity implements RuntimePermissio
         if ((requestCode == 201 || requestCode == 202) && resultCode == RESULT_OK) {
             String selected = MapPickerActivity.result(data);
             if (selected != null) {
-                if (requestCode == 201) pendingMapOrigin = selected.trim();
-                else pendingMapDestination = selected.trim();
                 (requestCode == 201 ? input_trip_origin : input_trip_destination).setText(selected.trim());
             }
         }
     }
 
-    private void reset() {
-        input_trip_origin.setText(originalLocOrigin.toString());
-        input_trip_destination.setText(originalLocDestination.toString());
-        input_trip_duration.setText(Integer.toString(originalTripDuration, 10));
+    private void initializeInputs() {
+        input_trip_origin.setText(drafts.getString("origin", originalLocOrigin.toString()));
+        input_trip_destination.setText(drafts.getString("destination", originalLocDestination.toString()));
+        input_trip_duration.setText(drafts.getString("duration", Integer.toString(originalTripDuration)));
+        showBookmark(label_trip_origin, input_trip_origin);
+        showBookmark(label_trip_destination, input_trip_destination);
+        refreshRuntimeState();
+    }
 
-        BookmarkItem bmItem;
-        bmItem = SharedPrefs.getBookmarkItem(TripSimulationActivity.this, originalLocOrigin);
-        if (bmItem != null) {
-            label_trip_origin.setText(bmItem.title);
-            label_trip_origin.setVisibility(View.VISIBLE);
-        }
-        bmItem = SharedPrefs.getBookmarkItem(TripSimulationActivity.this, originalLocDestination);
-        if (bmItem != null) {
-            label_trip_destination.setText(bmItem.title);
-            label_trip_destination.setVisibility(View.VISIBLE);
-        }
-
-        button_toggle_state.setText(LocationService.isStarted() ? R.string.label_button_stop : R.string.label_button_start);
-        button_toggle_state.setActivated(LocationService.isStarted());
-
-        button_update.setVisibility(View.GONE);
+    private void showBookmark(TextView label, TextView input) {
+        try {
+            BookmarkItem item = SharedPrefs.getBookmarkItem(this, new LocPoint(input.getText().toString()));
+            if (item != null) {
+                label.setText(item.title);
+                label.setVisibility(View.VISIBLE);
+            }
+        } catch (Exception ignored) {}
     }
 
     private void checkDiff() {
-        if (diff_fields == 0) {
-            button_update.setVisibility(View.GONE);
-        }
-        else {
-            button_update.setVisibility(View.VISIBLE);
-        }
+        // Re-evaluate the complete draft, including invalid/incomplete edits.
+        boolean valid = false;
+        try {
+            LocPoint origin = new LocPoint(input_trip_origin.getText().toString());
+            LocPoint destination = new LocPoint(input_trip_destination.getText().toString());
+            int duration = Integer.parseInt(input_trip_duration.getText().toString());
+            diff_fields = (short) ((!originalLocOrigin.equals(origin) ? 1 : 0)
+                | (!originalLocDestination.equals(destination) ? 2 : 0)
+                | (originalTripDuration != duration ? 4 : 0));
+            valid = duration > 0;
+        } catch (Exception ignored) {}
+        boolean show = LocationService.isStarted() && valid && diff_fields != 0;
+        button_update.setVisibility(show ? View.VISIBLE : View.GONE);
+        button_update.setEnabled(show);
     }
 
     // =============================================================================================
@@ -259,22 +266,9 @@ public class TripSimulationActivity extends Activity implements RuntimePermissio
 
         LocationService.doStart(TripSimulationActivity.this, true, modifiedLocOrigin, modifiedLocDestination, modifiedTripDuration);
 
-        short mask;
-
-        mask = (1 << 0);
-        if ((diff_fields & mask) == mask) {
-            SharedPrefs.putTripOrigin(TripSimulationActivity.this, modifiedLocOrigin);
-        }
-
-        mask = (1 << 1);
-        if ((diff_fields & mask) == mask) {
-            SharedPrefs.putTripDestination(TripSimulationActivity.this, modifiedLocDestination);
-        }
-
-        mask = (1 << 2);
-        if ((diff_fields & mask) == mask) {
-            SharedPrefs.putTripDuration(TripSimulationActivity.this, modifiedTripDuration);
-        }
+        SharedPrefs.putTripOrigin(this, modifiedLocOrigin);
+        SharedPrefs.putTripDestination(this, modifiedLocDestination);
+        SharedPrefs.putTripDuration(this, modifiedTripDuration);
 
         originalLocOrigin      = modifiedLocOrigin;
         originalLocDestination = modifiedLocDestination;
